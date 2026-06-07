@@ -1,0 +1,14 @@
+{
+  "_comment": "Add this block to your Claude Desktop config at:",
+  "_config_path_mac": "~/Library/Application Support/Claude/claude_desktop_config.json",
+  "_config_path_win": "%APPDATA%\\Claude\\claude_desktop_config.json",
+  "_instructions": "Replace ABSOLUTE_PATH_TO_SKILL with the full path where you extracted this folder.",
+
+  "mcpServers": {
+    "databox-executive-dashboard": {
+      "command": "node",
+      "args": ["/ABSOLUTE_PATH_TO_SKILL/databox-executive-mcp/dist/index.js"],
+      "env": {}
+    }
+  }
+}

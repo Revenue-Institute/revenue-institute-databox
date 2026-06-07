@@ -1,0 +1,407 @@
+import {
+  EXECUTIVE_METRIC_MAP,
+  ANALYST_NOISE_KEYWORDS,
+  ROLE_DISPLAY,
+  PRIORITY_DISPLAY,
+} from "../constants.js";
+import type {
+  DataboxDataSource,
+  DataboxMetric,
+  DataboxMetricData,
+  ExecutiveRole,
+  BusinessPriority,
+  IndustryVertical,
+  DashboardWidget,
+  DashboardBlueprint,
+  ExecutiveIntelligenceBrief,
+  MetricInsight,
+  VisualizationType,
+} from "../types.js";
+
+// ─── Executive Metric Curation Engine ────────────────────────────────────────
+// This is the Revenue Institute IP. It maps available Databox data sources
+// and metrics to the ones that actually matter at the executive level.
+
+export class ExecutiveCurationEngine {
+
+  // ── Score a metric for executive relevance ─────────────────────────────────
+
+  scoreMetric(
+    metric: DataboxMetric,
+    dataSource: DataboxDataSource,
+    role: ExecutiveRole,
+    priority: BusinessPriority,
+    industry: IndustryVertical
+  ): number {
+    const metricLower = (metric.key + " " + (metric.name ?? "")).toLowerCase();
+    const sourceLower = dataSource.name.toLowerCase();
+
+    // Hard exclude analyst noise
+    if (ANALYST_NOISE_KEYWORDS.some((kw) => metricLower.includes(kw))) {
+      return -1;
+    }
+
+    let score = 0;
+
+    for (const rule of EXECUTIVE_METRIC_MAP) {
+      const sourceMatch = rule.dataSourceKeywords.some((kw) =>
+        sourceLower.includes(kw)
+      );
+      const metricMatch = rule.metricKeywords.some((kw) =>
+        metricLower.includes(kw)
+      );
+
+      if (!sourceMatch || !metricMatch) continue;
+
+      // Base score for matching
+      score += 10;
+
+      // Boost for role alignment
+      if (rule.roles.includes(role)) score += 15;
+
+      // Boost for priority alignment
+      if (rule.priorities.includes(priority)) score += 20;
+
+      // Boost for industry alignment
+      if (
+        rule.industries.includes(industry) ||
+        rule.industries.includes("general_professional_services")
+      ) {
+        score += 5;
+      }
+    }
+
+    return score;
+  }
+
+  // ── Select the best metrics from available sources ─────────────────────────
+
+  selectExecutiveMetrics(
+    dataSources: DataboxDataSource[],
+    allMetrics: DataboxMetric[],
+    role: ExecutiveRole,
+    priority: BusinessPriority,
+    industry: IndustryVertical,
+    maxMetrics: number = 12
+  ): { selected: DataboxMetric[]; excluded: string[] } {
+    const scored: Array<{ metric: DataboxMetric; score: number }> = [];
+    const excluded: string[] = [];
+
+    for (const metric of allMetrics) {
+      const source = dataSources.find(
+        (ds) => ds.id === metric.dataSourceId
+      );
+      if (!source) continue;
+
+      const score = this.scoreMetric(metric, source, role, priority, industry);
+
+      if (score === -1) {
+        excluded.push(metric.name ?? metric.key);
+      } else if (score > 0) {
+        scored.push({ metric, score });
+      } else {
+        excluded.push(metric.name ?? metric.key);
+      }
+    }
+
+    // Sort by score descending, take top N
+    scored.sort((a, b) => b.score - a.score);
+    const selected = scored.slice(0, maxMetrics).map((s) => s.metric);
+
+    return { selected, excluded };
+  }
+
+  // ── Build a Dashboard Blueprint ────────────────────────────────────────────
+
+  buildDashboardBlueprint(
+    selectedMetrics: DataboxMetric[],
+    dataSources: DataboxDataSource[],
+    excludedMetrics: string[],
+    role: ExecutiveRole,
+    priority: BusinessPriority,
+    industry: IndustryVertical,
+    companyName: string
+  ): DashboardBlueprint {
+    const widgets: DashboardWidget[] = selectedMetrics.map(
+      (metric, index) => {
+        const source = dataSources.find(
+          (ds) => ds.id === metric.dataSourceId
+        );
+        const rule = this.findMatchingRule(metric, source);
+
+        return {
+          id: `widget_${index + 1}`,
+          position: index + 1,
+          metricKey: metric.key,
+          metricName: metric.name ?? metric.key,
+          dataSourceId: metric.dataSourceId ?? 0,
+          dataSourceName: source?.name ?? "Unknown Source",
+          visualizationType: rule?.visualizationType ?? "kpi_card",
+          title: this.generateWidgetTitle(metric, role),
+          why_it_matters:
+            rule?.why_it_matters ??
+            "Tracks a key performance indicator relevant to executive decision-making.",
+          alert_threshold: rule?.alertThreshold,
+          dateRange: rule?.dateRange ?? "last_30_days",
+          size: rule?.size ?? "medium",
+        };
+      }
+    );
+
+    // Sort: large first, then medium, then small (executive hierarchy)
+    widgets.sort((a, b) => {
+      const sizeOrder = { large: 0, medium: 1, small: 2 };
+      return sizeOrder[a.size] - sizeOrder[b.size];
+    });
+
+    // Re-assign positions after sort
+    widgets.forEach((w, i) => {
+      w.position = i + 1;
+    });
+
+    return {
+      name: `${companyName} - ${ROLE_DISPLAY[role]} Executive Dashboard`,
+      description: `AI-curated executive dashboard focused on ${PRIORITY_DISPLAY[priority]}. Generated by Revenue Institute Executive Dashboard Architect.`,
+      executive_role: role,
+      primary_priority: priority,
+      industry,
+      created_at: new Date().toISOString(),
+      widgets,
+      excluded_metrics: excludedMetrics.slice(0, 20), // Don't overwhelm
+      setup_instructions: this.generateSetupInstructions(widgets),
+      databox_wizard_hint: this.generateWizardHint(widgets, dataSources),
+    };
+  }
+
+  // ── Build Executive Intelligence Brief ────────────────────────────────────
+
+  buildIntelligenceBrief(
+    metricData: DataboxMetricData[],
+    blueprint: DashboardBlueprint,
+    genieInsights: string,
+    companyName: string
+  ): ExecutiveIntelligenceBrief {
+    const insights: MetricInsight[] = metricData
+      .filter((d) => d.value !== null)
+      .map((d) => ({
+        metric_name: d.metricName,
+        data_source: d.dataSourceName,
+        current_value: this.formatMetricValue(d),
+        trend: d.trend ?? "No trend data available",
+        executive_interpretation: this.interpretMetric(d),
+        urgency: this.assessUrgency(d),
+      }));
+
+    const criticalCount = insights.filter((i) => i.urgency === "critical").length;
+    const watchCount = insights.filter((i) => i.urgency === "watch").length;
+
+    const companySnapshot =
+      criticalCount > 0
+        ? `${companyName} has ${criticalCount} metric(s) requiring immediate attention and ${watchCount} to monitor closely.`
+        : watchCount > 0
+        ? `${companyName} is performing adequately with ${watchCount} metric(s) worth watching.`
+        : `${companyName} metrics look healthy across tracked KPIs.`;
+
+    const crossPatterns = this.detectCrossMetricPatterns(metricData);
+    const recommendedActions = this.generateRecommendedActions(
+      insights,
+      blueprint
+    );
+
+    return {
+      generated_at: new Date().toISOString(),
+      company_snapshot: companySnapshot,
+      top_insights: insights,
+      cross_metric_patterns: [
+        ...crossPatterns,
+        ...(genieInsights ? [genieInsights] : []),
+      ],
+      recommended_actions: recommendedActions,
+      dashboard_blueprint: blueprint,
+    };
+  }
+
+  // ── Private Helpers ────────────────────────────────────────────────────────
+
+  private findMatchingRule(
+    metric: DataboxMetric,
+    source?: DataboxDataSource
+  ) {
+    if (!source) return null;
+    const metricLower = (metric.key + " " + (metric.name ?? "")).toLowerCase();
+    const sourceLower = source.name.toLowerCase();
+
+    return (
+      EXECUTIVE_METRIC_MAP.find(
+        (rule) =>
+          rule.dataSourceKeywords.some((kw) => sourceLower.includes(kw)) &&
+          rule.metricKeywords.some((kw) => metricLower.includes(kw))
+      ) ?? null
+    );
+  }
+
+  private generateWidgetTitle(
+    metric: DataboxMetric,
+    role: ExecutiveRole
+  ): string {
+    const name = metric.name ?? metric.key;
+    // Keep it clean and executive -- no technical jargon
+    return name
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  }
+
+  private formatMetricValue(data: DataboxMetricData): string {
+    if (data.value === null || data.value === undefined) return "No data";
+    const v = data.value;
+    if (data.unit === "currency" || data.unit === "usd") {
+      return `$${Number(v).toLocaleString()}`;
+    }
+    if (data.unit === "percent" || data.unit === "%") {
+      return `${v}%`;
+    }
+    return String(v);
+  }
+
+  private interpretMetric(data: DataboxMetricData): string {
+    const metricLower = data.metricName.toLowerCase();
+
+    if (metricLower.includes("churn")) {
+      const val = Number(data.value);
+      if (val > 5) return "Churn is dangerously high. Immediate retention focus needed.";
+      if (val > 2) return "Churn is above healthy threshold. Investigate top reasons.";
+      return "Churn is within acceptable range. Monitor monthly.";
+    }
+
+    if (metricLower.includes("utilization")) {
+      const val = Number(data.value);
+      if (val < 60) return "Utilization is critically low -- revenue is being left on the table.";
+      if (val < 70) return "Utilization is below target. Capacity planning review needed.";
+      if (val > 90) return "Utilization is very high -- risk of burnout and delivery quality issues.";
+      return "Utilization is in healthy range.";
+    }
+
+    if (metricLower.includes("pipeline")) {
+      return `Current pipeline value. Should be at least 3x your monthly revenue target to ensure predictable growth.`;
+    }
+
+    return `Current performance for ${data.metricName}. ${data.trend ? `Trend: ${data.trend}.` : ""}`;
+  }
+
+  private assessUrgency(
+    data: DataboxMetricData
+  ): "critical" | "watch" | "healthy" {
+    const metricLower = data.metricName.toLowerCase();
+    const val = Number(data.value);
+
+    if (metricLower.includes("churn") && val > 5) return "critical";
+    if (metricLower.includes("churn") && val > 2) return "watch";
+    if (metricLower.includes("utilization") && val < 60) return "critical";
+    if (metricLower.includes("utilization") && val < 70) return "watch";
+    if (data.trend === "down" || data.trend === "declining") return "watch";
+
+    return "healthy";
+  }
+
+  private detectCrossMetricPatterns(
+    metricData: DataboxMetricData[]
+  ): string[] {
+    const patterns: string[] = [];
+
+    const pipeline = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("pipeline")
+    );
+    const closeRate = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("close_rate") ||
+      m.metricName.toLowerCase().includes("win_rate")
+    );
+    const revenue = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("revenue")
+    );
+    const churn = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("churn")
+    );
+    const utilization = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("utilization")
+    );
+    const margin = metricData.find((m) =>
+      m.metricName.toLowerCase().includes("margin")
+    );
+
+    if (pipeline && closeRate) {
+      patterns.push(
+        `Pipeline and close rate are both tracked -- compare pipeline volume trend against close rate trend to identify whether growth requires more leads or better conversion.`
+      );
+    }
+
+    if (churn && revenue) {
+      patterns.push(
+        `Cross-reference churn rate against revenue growth. If revenue is growing but so is churn, you're running on a treadmill -- acquisition is masking a retention problem.`
+      );
+    }
+
+    if (utilization && margin) {
+      patterns.push(
+        `Utilization rate and gross margin should move together in professional services. If utilization is up but margin is flat, investigate pricing and scope management.`
+      );
+    }
+
+    return patterns;
+  }
+
+  private generateRecommendedActions(
+    insights: MetricInsight[],
+    blueprint: DashboardBlueprint
+  ): string[] {
+    const actions: string[] = [];
+
+    const critical = insights.filter((i) => i.urgency === "critical");
+    const watch = insights.filter((i) => i.urgency === "watch");
+
+    if (critical.length > 0) {
+      actions.push(
+        `URGENT: Address ${critical.map((c) => c.metric_name).join(", ")} -- these are in critical range and require immediate attention.`
+      );
+    }
+
+    if (watch.length > 0) {
+      actions.push(
+        `MONITOR: Schedule a weekly 15-min review of ${watch.map((w) => w.metric_name).join(", ")}.`
+      );
+    }
+
+    actions.push(
+      `Build this dashboard in Databox using the blueprint below -- it should take under 30 minutes using the Wizard with your connected data sources.`
+    );
+
+    actions.push(
+      `Set Databox alerts on your top 3 critical metrics so you're notified before problems compound.`
+    );
+
+    return actions;
+  }
+
+  private generateSetupInstructions(widgets: DashboardWidget[]): string {
+    const sources = [...new Set(widgets.map((w) => w.dataSourceName))];
+    return [
+      `1. In Databox, go to Databoards > + New Databoard`,
+      `2. Select the Wizard and choose your primary data source: ${sources[0] ?? "your main tool"}`,
+      `3. Add the following metrics in this order (largest widgets first):`,
+      ...widgets.map(
+        (w) =>
+          `   - ${w.title} (${w.dataSourceName}, ${w.visualizationType}, ${w.size} size)`
+      ),
+      `4. Set date range for each widget as specified in the blueprint`,
+      `5. Configure alerts on any metric with an alert_threshold defined`,
+      `6. Share the dashboard with your leadership team via Databox's sharing link`,
+    ].join("\n");
+  }
+
+  private generateWizardHint(
+    widgets: DashboardWidget[],
+    dataSources: DataboxDataSource[]
+  ): string {
+    const primarySource = dataSources[0]?.name ?? "your CRM";
+    return `Start with the Databox Wizard, select "${primarySource}" as your first data source, then use the Metric Library to find and add each metric from the blueprint. The Designer allows you to resize widgets -- set revenue and pipeline metrics to full-width.`;
+  }
+}

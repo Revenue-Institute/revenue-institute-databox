@@ -1,0 +1,40 @@
+{
+  "name": "databox-executive-dashboard",
+  "version": "1.0.0",
+  "description": "Auto-discovers connected Databox data sources, curates executive-level KPIs by role and 90-day priority, and generates a complete dashboard blueprint with an Executive Intelligence Brief. Filters out analyst noise. Built for mid-market professional services CEOs, COOs, CFOs, and sales leaders.",
+  "author": "Revenue Institute",
+  "homepage": "https://revenueinstitute.com",
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": ["${SKILL_DIR}/dist/index.js"],
+    "env": {}
+  },
+  "tools": [
+    {
+      "name": "databox_validate_connection",
+      "description": "Validate a Databox API key and list accessible accounts. Run this first."
+    },
+    {
+      "name": "databox_discover_data_sources",
+      "description": "Inventory all data sources connected to a Databox account (HubSpot, QuickBooks, Google Ads, etc.)."
+    },
+    {
+      "name": "databox_build_executive_dashboard",
+      "description": "Core tool. Discovers metrics, curates by executive role and priority, loads current values, and returns an Executive Intelligence Brief + complete Databoard blueprint."
+    },
+    {
+      "name": "databox_get_metric_intel",
+      "description": "Ask a natural language question against Databox data via Genie AI. Requires MCP token."
+    }
+  ],
+  "triggers": [
+    "build a databox dashboard",
+    "create an executive dashboard",
+    "what metrics should a CEO track in databox",
+    "databox kpi dashboard",
+    "build me a databoard",
+    "executive intelligence brief",
+    "databox for my client"
+  ]
+}
