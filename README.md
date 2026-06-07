@@ -1,189 +1,61 @@
-# Databox Executive Dashboard Architect
-### by Revenue Institute
+# Revenue Institute — Databox Executive Dashboard
+### AI-powered executive dashboards. By Revenue Institute.
 
-> **"40 to 168 hours of output -- starting with the dashboard executives actually need."**
+Most Databox dashboards are built for analysts. This builds them for executives.
 
-An MCP server that auto-discovers your client's connected Databox data sources, curates the right executive-level KPIs (not analyst noise), and generates a complete dashboard blueprint + Executive Intelligence Brief.
+One command installs a Claude skill that connects to your Databox account, reads every data source you have connected, filters out the noise, and delivers the 10 metrics your CEO actually needs to run the business.
 
----
+## Install
 
-## What It Does
+```bash
+npx revenue-institute-databox
+```
 
-1. **Discovers** every data source connected to Databox (HubSpot, QuickBooks, Google Ads, etc.)
-2. **Scores** all available metrics using the Revenue Institute Executive Intelligence Map -- filtering out bounce rates, impressions, and every other metric analysts love but CEOs don't need
-3. **Loads** current values for selected metrics
-4. **Analyzes** cross-metric patterns (is pipeline up but close rate down? Is churn rising while revenue grows?)
-5. **Outputs** a ready-to-build Databoard blueprint + urgency-flagged intelligence brief
+Restart Claude Desktop. Done.
 
----
+## Usage
 
-## Tools
+Open Claude Desktop and say:
 
-| Tool | Description |
-|------|-------------|
-| `databox_validate_connection` | Validate API key and list accounts |
-| `databox_discover_data_sources` | Inventory all connected tools in Databox |
-| `databox_build_executive_dashboard` | **Main tool** -- full discovery, curation, and blueprint generation |
-| `databox_get_metric_intel` | Ask natural language questions via Databox Genie AI |
+> "Build me an executive Databox dashboard"
 
----
+That's it. No configuration. No setup. Claude discovers your connected tools and builds the right dashboard for your role automatically.
 
-## Setup
+## What gets built
 
-### Prerequisites
+An **Executive Intelligence Brief** containing:
+
+- **Snapshot** — one-line health assessment with urgency flags
+- **Top metrics** — curated KPIs with current values, trends, and why they matter
+- **Cross-metric patterns** — what your data is telling you that no single metric shows
+- **Recommended actions** — ordered by urgency
+- **Databoard blueprint** — widget-by-widget spec ready to build in Databox
+- **Setup guide** — step-by-step instructions to build it in under 30 minutes
+
+## What gets filtered out
+
+Bounce rate. Session duration. Impressions. CTR. Social followers. Page views. Domain authority.
+
+These are analyst metrics. Executives don't need them. They're gone.
+
+## What gets surfaced
+
+Revenue. Pipeline value. Gross margin. Churn rate. Close rate. Cash flow. Billable utilization. Qualified leads. AR. LTV.
+
+Metrics that drive decisions.
+
+## Works with any Databox integration
+
+HubSpot, Salesforce, QuickBooks, Xero, Google Ads, Facebook Ads, Harvest, Toggl, BambooHR, Gusto, Stripe, and more. Whatever you have connected, the skill reads it and curates from it.
+
+## Requirements
 
 - Node.js 18+
-- Databox account (Professional plan or above for API access)
-- Databox API key: **Settings > Integrations > API**
-- (Optional) Databox MCP token: `mcp.databox.com` for AI-powered analysis
-
-### Install & Build
-
-```bash
-npm install
-npm run build
-```
-
-### Run (stdio -- for Claude Desktop)
-
-```bash
-npm start
-```
-
-### Run (HTTP -- for remote Claude.ai MCP integration)
-
-```bash
-TRANSPORT=http PORT=3000 npm start
-```
-
-### Claude Desktop Config
-
-```json
-{
-  "mcpServers": {
-    "databox-executive": {
-      "command": "node",
-      "args": ["/path/to/databox-executive-mcp/dist/index.js"]
-    }
-  }
-}
-```
+- Claude Desktop
+- Databox account with at least one integration connected
 
 ---
 
-## Usage Examples
+Built by [Revenue Institute](https://revenueinstitute.com) — Operators, Not Theorists.
 
-### Validate connection
-```
-databox_validate_connection({
-  databox_api_key: "your_key_here"
-})
-```
-
-### Discover what's connected
-```
-databox_discover_data_sources({
-  databox_api_key: "your_key_here"
-})
-```
-
-### Build a CEO dashboard for a law firm
-```
-databox_build_executive_dashboard({
-  databox_api_key: "your_key_here",
-  databox_mcp_token: "your_mcp_token",  // optional but recommended
-  company_name: "Acme Law Group",
-  executive_role: "ceo",
-  business_priority: "pipeline_growth",
-  industry: "legal",
-  max_widgets: 10
-})
-```
-
-### Ask Genie a business question
-```
-databox_get_metric_intel({
-  databox_mcp_token: "your_mcp_token",
-  question: "What's driving the pipeline decline this quarter and which rep is performing best?"
-})
-```
-
----
-
-## Executive Roles Supported
-
-| Role | Key Metrics Surfaced |
-|------|---------------------|
-| `ceo` | Revenue, pipeline, margin, churn, cash flow |
-| `coo` | Utilization, capacity, headcount ROI, delivery margin |
-| `cfo` | Gross margin, AR, cash flow, CAC vs LTV |
-| `sales_leader` | Pipeline value, close rate, sales cycle, ROAS, CPL |
-| `general` | Balanced across all executive metrics |
-
-## Business Priorities
-
-| Priority | What Gets Boosted |
-|----------|------------------|
-| `pipeline_growth` | CRM, pipeline, leads, close rate, ROAS |
-| `margin_and_profitability` | Gross margin, CAC, LTV, billing efficiency |
-| `operational_efficiency` | Utilization, throughput, cycle time |
-| `client_retention` | Churn, NPS, renewal rates |
-| `headcount_roi` | Revenue per employee, utilization, turnover |
-| `cash_flow` | AR, collections, cash position, runway |
-
----
-
-## Industries Supported
-
-- `legal` -- Law firms
-- `accounting` -- CPA/accounting firms
-- `consulting` -- Management and strategy consulting
-- `staffing` -- Staffing and recruiting agencies
-- `general_professional_services` -- Default
-
----
-
-## The Revenue Institute Executive Intelligence Map
-
-The core IP. A curated set of rules that maps:
-- **Data source** (HubSpot, QuickBooks, etc.) + **Metric** (close_rate, gross_margin, etc.)
-- To: visualization type, size, date range, and executive interpretation
-
-**What gets filtered OUT:**
-- Bounce rate, session duration, page views (web analytics noise)
-- Impressions, CTR, organic traffic (channel-level ad metrics)
-- Social followers, likes, shares (vanity metrics)
-
----
-
-## Architecture
-
-```
-Claude / MCP Client
-       |
-databox-executive-mcp (this server)
-       |
-  ┌────┴────┐
-  │         │
-Databox   Databox
-REST API   MCP API
-(data      (Genie AI
-sources,   analysis)
-metrics)
-```
-
----
-
-## Deploying to n8n (Revenue Institute Standard)
-
-This server can be called from n8n to automate monthly executive report generation:
-
-1. Deploy with `TRANSPORT=http`
-2. In n8n, use HTTP Request node pointing to `/mcp`
-3. Pass the MCP JSON-RPC payload for `databox_build_executive_dashboard`
-4. Route the brief to Slack, email, or HubSpot CRM
-
----
-
-*Built by Revenue Institute -- Operators, Not Theorists.*  
-*Stephen Lowisz | revenueinstitute.com*
+*Stephen Lowisz — Founder & CEO | Author, The AI Workforce Playbook*
