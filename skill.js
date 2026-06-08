@@ -55,6 +55,58 @@ Returns a prompt that Claude executes against the connected Databox MCP tools.`,
   }
 );
 
+// ─── Prompt: surfaces as a slash command in MCP clients ───────────────────────
+// In Claude Desktop this appears as a slash command. In Claude Code, MCP prompts
+// appear as /mcp__revenue-institute-databox__revenue_db. (Claude Code's native
+// /revenue-db comes from .claude/commands/revenue-db.md, not from this prompt.)
+server.registerPrompt(
+  "revenue_db",
+  {
+    title: "Revenue Institute — Executive Dashboard (/revenue-db)",
+    description:
+      "Build an executive-grade Databox dashboard brief. Infers context, then runs the curation workflow against the connected Databox MCP tools.",
+    argsSchema: {
+      company_name: z.string().min(1).describe("Company name"),
+      executive_role: z
+        .enum(["ceo", "coo", "cfo", "sales_leader"])
+        .describe("Executive role"),
+      business_priority: z
+        .enum([
+          "pipeline_growth",
+          "margin_and_profitability",
+          "operational_efficiency",
+          "client_retention",
+          "headcount_roi",
+          "cash_flow",
+        ])
+        .describe("Primary 90-day priority"),
+      industry: z
+        .enum([
+          "legal",
+          "accounting",
+          "consulting",
+          "staffing",
+          "general_professional_services",
+        ])
+        .optional()
+        .describe("Industry vertical (default: general_professional_services)"),
+    },
+  },
+  ({ company_name, executive_role, business_priority, industry }) => {
+    const prompt = buildPrompt(
+      company_name,
+      executive_role,
+      business_priority,
+      industry ?? "general_professional_services"
+    );
+    return {
+      messages: [
+        { role: "user", content: { type: "text", text: prompt } },
+      ],
+    };
+  }
+);
+
 function buildPrompt(company, role, priority, industry) {
   return `# Revenue Institute — Executive Dashboard Architect
 ## Building dashboard for: ${company} | Role: ${role.toUpperCase()} | Priority: ${priority.replace(/_/g, " ")} | Industry: ${industry.replace(/_/g, " ")}
