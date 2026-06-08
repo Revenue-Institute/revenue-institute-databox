@@ -1,6 +1,6 @@
 {
   "name": "revenue-institute-databox",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Revenue Institute — AI-powered executive dashboards for Databox. Auto-discovers connected data sources and builds the KPI dashboard your CEO actually needs.",
   "type": "module",
   "main": "skill.js",
